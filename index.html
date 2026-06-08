@@ -382,6 +382,8 @@ const THEME_COLORS = {
   'Government':                     '#BAB0AC',
 };
 
+INDUSTRY_DATA.forEach(r => { if (r.cat === 'o' && r.jc24 === 0) r.cat = 'e'; });
+
 const PORTFOLIO_META = {
   s: { name: 'Current Strengths', color: '#2A6F37', icon: 'bi-graph-up-arrow',
        desc: 'Your county already employs a higher share of workers in these industries than most U.S. counties — they’re a genuine, demonstrated strength of the local economy.' },

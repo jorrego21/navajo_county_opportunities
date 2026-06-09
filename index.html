@@ -720,16 +720,39 @@ function getTableRows(){
     });
   });
 
+  // Build a tier function for the primary field so secondary sort has room to operate.
+  // Star fields (density/cog) use their natural 5-star thresholds.
+  // All other fields: split current rows into 5 quantile buckets.
+  let tierOf;
+  if(!sortField2){
+    tierOf=null;
+  } else if(sortField==='density'||sortField==='cog'){
+    tierOf=v=>v===null||v===undefined?0:v>=0.8?5:v>=0.6?4:v>=0.4?3:v>=0.2?2:1;
+  } else {
+    const vals=rows.map(r=>r[sortField]).filter(v=>v!==null&&v!==undefined).sort((a,b)=>a-b);
+    const n=vals.length;
+    tierOf=v=>{
+      if(v===null||v===undefined) return sortDir==='desc'?-1:6;
+      const rank=vals.findIndex(x=>x>=v);
+      return Math.floor((rank<0?n:rank)/n*5);
+    };
+  }
+
   rows.sort((a,b)=>{
     let av=a[sortField], bv=b[sortField];
+    if(tierOf){
+      const ta=tierOf(av), tb=tierOf(bv);
+      const tierDiff=sortDir==='desc'?tb-ta:ta-tb;
+      if(tierDiff!==0) return tierDiff;
+      // Same tier — apply secondary sort (always desc)
+      let av2=a[sortField2], bv2=b[sortField2];
+      if(av2===null||av2===undefined) av2=-Infinity;
+      if(bv2===null||bv2===undefined) bv2=-Infinity;
+      return bv2-av2;
+    }
     if(av===null||av===undefined) av=sortDir==='desc'?-Infinity:Infinity;
     if(bv===null||bv===undefined) bv=sortDir==='desc'?-Infinity:Infinity;
-    const primary=sortDir==='desc'?bv-av:av-bv;
-    if(primary!==0||!sortField2) return primary;
-    let av2=a[sortField2], bv2=b[sortField2];
-    if(av2===null||av2===undefined) av2=-Infinity;
-    if(bv2===null||bv2===undefined) bv2=-Infinity;
-    return bv2-av2;
+    return sortDir==='desc'?bv-av:av-bv;
   });
   return rows;
 }

@@ -213,6 +213,32 @@ tbody td{padding:9px 12px;vertical-align:middle}
 .util-dot{width:14px;height:14px;border-radius:50%;background:#e0e0e0}
 .util-level{font-size:12px;color:var(--color-text-muted)}
 .util-null-note{font-size:12px;color:var(--color-text-muted);font-style:italic;text-align:center;padding:8px}
+
+/* UTILITY FILTER */
+#utility-filter-section{margin-top:14px;padding:12px 14px;background:#f4f9f9;border-radius:8px;border:1px solid var(--color-border)}
+.util-filter-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.util-filter-row:last-child{margin-bottom:0}
+.util-filter-icon{font-size:14px;width:18px;text-align:center}
+.util-filter-lbl{font-size:12px;font-weight:600;width:86px;color:var(--color-text-mid)}
+.util-filter-dots{display:flex;gap:5px;align-items:center}
+.util-fdot{width:13px;height:13px;border-radius:50%;cursor:pointer;background:#ddd;transition:all .15s;flex-shrink:0;box-sizing:border-box}
+.util-fdot:hover{transform:scale(1.25)}
+.util-fdot.threshold{box-shadow:0 0 0 2px #fff,0 0 0 4px currentColor}
+.util-clear-dim{background:none;border:none;cursor:pointer;font-size:13px;color:var(--color-text-muted);padding:0 2px;line-height:1;font-family:'Montserrat',sans-serif}
+.util-clear-dim:hover{color:var(--color-orange)}
+.util-filter-val{font-size:11px;color:var(--color-text-muted);margin-left:6px;min-width:72px}
+
+/* DISCLOSURE NOTE */
+#low-attain-note{margin-top:10px;font-size:12px;color:var(--color-text-muted);line-height:1.6}
+.disclosure-btn{background:none;border:none;color:var(--color-teal);font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;font-family:'Montserrat',sans-serif;padding:0}
+.disclosure-btn:hover{color:var(--color-teal-dk)}
+.disclosure-btn.active{color:var(--color-orange);text-decoration:none}
+
+/* SECONDARY SORT CONTROLS */
+#sort-controls{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-muted);flex-wrap:wrap}
+#sort2-select{font-family:'Montserrat',sans-serif;font-size:12px;border:1px solid var(--color-border);border-radius:4px;padding:3px 6px;color:var(--color-text);background:#fff}
+.clear-sort-btn{background:none;border:none;color:var(--color-text-muted);font-size:12px;cursor:pointer;padding:0 2px;font-family:'Montserrat',sans-serif}
+.clear-sort-btn:hover{color:var(--color-orange)}
 .util-context{font-size:12px;color:var(--color-text-muted);margin-bottom:14px;line-height:1.5;font-style:italic}
 
 /* PICKER PANEL */
@@ -295,10 +321,28 @@ tbody td{padding:9px 12px;vertical-align:middle}
 <!-- TAB: OPPORTUNITIES -->
 <div id="tab-opportunities" class="tab-content" style="display:none">
   <div class="card-grid-3" id="portfolio-cards"></div>
+  <div id="low-attain-note" style="display:none">
+    <div style="margin-bottom:6px">The categories above reflect the highest-attainability options. There are also 292 manufacturing industries with lower attainability scores that didn't make the cut — not the first recommendation, but worth exploring if you're focused on manufacturing. <button class="disclosure-btn" id="low-mfg-btn">Show them</button></div>
+    <div>Manufacturing industries that sell locally rather than to outside markets are less likely to drive broad economic growth, but may serve important community needs. <button class="disclosure-btn" id="nt-mfg-btn">Show non-tradable manufacturing</button></div>
+  </div>
   <div id="industry-table-section" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px;flex-wrap:wrap">
       <div class="section-head" id="table-title">Industries</div>
-      <div style="font-size:12px;color:var(--color-text-muted)" id="table-count"></div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div id="sort-controls">
+          <span>Then sort by:</span>
+          <select id="sort2-select">
+            <option value="">—</option>
+            <option value="cog">Spillover Gain</option>
+            <option value="density">Attainability</option>
+            <option value="growth_c">County Growth</option>
+            <option value="jc24">County Jobs</option>
+            <option value="growth_s">State Growth</option>
+          </select>
+          <button class="clear-sort-btn" id="clear-sort-btn">× Clear sort</button>
+        </div>
+        <div style="font-size:12px;color:var(--color-text-muted)" id="table-count"></div>
+      </div>
     </div>
     <div class="table-wrap">
       <table id="industry-table">
@@ -327,6 +371,10 @@ tbody td{padding:9px 12px;vertical-align:middle}
         <button class="pill" data-wage="Medium">Medium Wage</button>
         <button class="pill" data-wage="High">High Wage</button>
       </div>
+    </div>
+    <div id="utility-filter-section" style="display:none">
+      <div class="section-label" style="margin-top:14px">Filter by Utility Requirements</div>
+      <div id="utility-filter-dots"></div>
     </div>
   </div>
   <hr class="divider">
@@ -398,9 +446,17 @@ let activeIndustry  = null;
 let tradabilityFilter = 'all';
 let sortField       = 'density';
 let sortDir         = 'desc';
+let sortField2      = null;
 let activeSectors   = new Set();
 let activeWage      = null;
+let utilFilter      = {elec:null, water:null, space:null};
 let searchQuery     = '';
+
+// Level extraction used by both profile view and utility filter
+function extractLevelGlobal(val){
+  if(!val) return null;
+  return ['Very high','Very low','High','Medium','Low'].find(l=>val.startsWith(l))||null;
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -623,24 +679,57 @@ function renderPortfolioCards(){
       activePortfolio=activePortfolio===key?null:key;
       activeSectors=new Set();
       activeWage=null;
-      sortField='density';sortDir='desc';
+      sortField='density';sortDir='desc';sortField2=null;
+      utilFilter={elec:null,water:null,space:null};
       renderPortfolioCards();
       const sec=document.getElementById('industry-table-section');
       sec.style.display=activePortfolio?'block':'none';
       if(activePortfolio) renderIndustryTable();
     });
   });
+
+  // Disclosure note — always show when on Opportunities tab
+  const note=document.getElementById('low-attain-note');
+  note.style.display='block';
+  document.getElementById('low-mfg-btn').classList.toggle('active',activePortfolio==='low_mfg');
+  document.getElementById('nt-mfg-btn').classList.toggle('active',activePortfolio==='nt_mfg');
 }
 
 function getTableRows(){
-  let rows=INDUSTRY_DATA.filter(r=>r.cat===activePortfolio);
+  const MFG_THEMES = ['Durable Manufacturing','Non-Durable Manufacturing'];
+  const UTIL_LEVELS = ['Very low','Low','Medium','High','Very high'];
+
+  let rows;
+  if(activePortfolio==='low_mfg'){
+    rows=INDUSTRY_DATA.filter(r=>r.cat===null&&r.tradability==='Tradable'&&MFG_THEMES.includes(r.theme));
+  } else if(activePortfolio==='nt_mfg'){
+    rows=INDUSTRY_DATA.filter(r=>r.tradability==='Non-Tradable'&&MFG_THEMES.includes(r.theme));
+  } else {
+    rows=INDUSTRY_DATA.filter(r=>r.cat===activePortfolio);
+  }
+
   if(activeSectors.size>0) rows=rows.filter(r=>activeSectors.has(r.theme));
   if(activeWage) rows=rows.filter(r=>r.wage===activeWage);
+
+  // Utility filter (only applies when a threshold is set)
+  ['elec','water','space'].forEach(dim=>{
+    if(utilFilter[dim]===null) return;
+    rows=rows.filter(r=>{
+      const lv=extractLevelGlobal(r[dim]);
+      return lv!==null && UTIL_LEVELS.indexOf(lv)<=utilFilter[dim];
+    });
+  });
+
   rows.sort((a,b)=>{
     let av=a[sortField], bv=b[sortField];
     if(av===null||av===undefined) av=sortDir==='desc'?-Infinity:Infinity;
     if(bv===null||bv===undefined) bv=sortDir==='desc'?-Infinity:Infinity;
-    return sortDir==='desc'?bv-av:av-bv;
+    const primary=sortDir==='desc'?bv-av:av-bv;
+    if(primary!==0||!sortField2) return primary;
+    let av2=a[sortField2], bv2=b[sortField2];
+    if(av2===null||av2===undefined) av2=-Infinity;
+    if(bv2===null||bv2===undefined) bv2=-Infinity;
+    return bv2-av2;
   });
   return rows;
 }
@@ -649,9 +738,19 @@ function renderIndustryTable(){
   const rows=getTableRows();
   const sec=document.getElementById('industry-table-section');
   sec.style.display='block';
-  const m=PORTFOLIO_META[activePortfolio];
-  document.getElementById('table-title').textContent=m.name;
+  const meta=activePortfolio==='low_mfg'
+    ?{name:'Lower-Attainability Manufacturing',color:'#6B7280'}
+    :activePortfolio==='nt_mfg'
+    ?{name:'Non-Tradable Manufacturing',color:'#6B7280'}
+    :PORTFOLIO_META[activePortfolio];
+  document.getElementById('table-title').textContent=meta.name;
   document.getElementById('table-count').textContent=rows.length+' industries';
+
+  // Sort controls
+  const isNonDefault=sortField!=='density'||sortDir!=='desc'||sortField2!==null;
+  document.getElementById('clear-sort-btn').style.display=isNonDefault?'inline':'none';
+  const sel=document.getElementById('sort2-select');
+  if(sel.value!==(sortField2||'')) sel.value=sortField2||'';
 
   // Headers sort state
   document.querySelectorAll('thead th[data-sort]').forEach(th=>{
@@ -681,7 +780,13 @@ function renderIndustryTable(){
   });
 
   // Sector pills
-  const themes=[...new Set(INDUSTRY_DATA.filter(r=>r.cat===activePortfolio).map(r=>r.theme))].sort();
+  const MFG_THEMES=['Durable Manufacturing','Non-Durable Manufacturing'];
+  const themeSource=activePortfolio==='low_mfg'
+    ?INDUSTRY_DATA.filter(r=>r.cat===null&&r.tradability==='Tradable'&&MFG_THEMES.includes(r.theme))
+    :activePortfolio==='nt_mfg'
+    ?INDUSTRY_DATA.filter(r=>r.tradability==='Non-Tradable'&&MFG_THEMES.includes(r.theme))
+    :INDUSTRY_DATA.filter(r=>r.cat===activePortfolio);
+  const themes=[...new Set(themeSource.map(r=>r.theme))].sort();
   const sp=document.getElementById('sector-pills');
   sp.innerHTML=themes.map(t=>`<button class="pill${activeSectors.has(t)?' multi-active':''}" data-sector="${t}">${t}</button>`).join('');
   sp.querySelectorAll('.pill').forEach(p=>{
@@ -697,6 +802,67 @@ function renderIndustryTable(){
   document.querySelectorAll('#wage-pills .pill').forEach(p=>{
     p.classList.toggle('active',p.dataset.wage===activeWage);
     p.onclick=()=>{activeWage=activeWage===p.dataset.wage?null:p.dataset.wage;renderIndustryTable();};
+  });
+
+  renderUtilFilter();
+}
+
+// ─── UTILITY FILTER ───────────────────────────────────────────────────────────
+
+function renderUtilFilter(){
+  const MFG_THEMES=['Durable Manufacturing','Non-Durable Manufacturing'];
+  const showUtil=activePortfolio==='low_mfg'||
+    activeSectors.has('Durable Manufacturing')||
+    activeSectors.has('Non-Durable Manufacturing');
+  const sec=document.getElementById('utility-filter-section');
+  sec.style.display=showUtil?'block':'none';
+  if(!showUtil) return;
+
+  const UTIL_LEVELS=['Very low','Low','Medium','High','Very high'];
+  const dotColors=['var(--color-green)','var(--color-green)','var(--color-gold)','var(--color-orange)','var(--color-orange)'];
+  const dims=[
+    {key:'elec',icon:'⚡',label:'Electricity'},
+    {key:'water',icon:'💧',label:'Water'},
+    {key:'space',icon:'⬛',label:'Land &amp; Space'},
+  ];
+
+  const container=document.getElementById('utility-filter-dots');
+  container.innerHTML=dims.map(({key,icon,label})=>{
+    const threshold=utilFilter[key];
+    const dots=UTIL_LEVELS.map((lv,i)=>{
+      const active=threshold!==null&&i<=threshold;
+      const isThreshold=threshold!==null&&i===threshold;
+      const col=active?dotColors[threshold]:'#ddd';
+      const ring=isThreshold?` class="util-fdot threshold" style="background:${col};color:${col}"`
+                            :` class="util-fdot" style="background:${col}"`;
+      return `<div${ring} data-dim="${key}" data-idx="${i}" title="${lv}"></div>`;
+    }).join('');
+    const valLabel=threshold!==null?`Up to: ${UTIL_LEVELS[threshold]}`:'Any';
+    const clearBtn=threshold!==null
+      ?`<button class="util-clear-dim" data-dim="${key}" title="Clear filter">×</button>`
+      :'';
+    return `<div class="util-filter-row">
+      <span class="util-filter-icon">${icon}</span>
+      <span class="util-filter-lbl">${label}</span>
+      <div class="util-filter-dots">${dots}</div>
+      <span class="util-filter-val">${valLabel}</span>
+      ${clearBtn}
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.util-fdot').forEach(dot=>{
+    dot.addEventListener('click',()=>{
+      const dim=dot.dataset.dim;
+      const idx=parseInt(dot.dataset.idx);
+      utilFilter[dim]=utilFilter[dim]===idx?null:idx;
+      renderIndustryTable();
+    });
+  });
+  container.querySelectorAll('.util-clear-dim').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      utilFilter[btn.dataset.dim]=null;
+      renderIndustryTable();
+    });
   });
 }
 
@@ -769,10 +935,11 @@ function renderProfile(){
 
   // Utility summary
   const utilLevels=['Very low','Low','Medium','High','Very high'];
+  // Data values are verbose (e.g. "High electricity use") — extract the level prefix
   const utilVals=[r.elec,r.water,r.space].filter(Boolean);
   let utilSummary='Light requirements';
   if(utilVals.length){
-    const avg=utilVals.reduce((s,v)=>s+utilLevels.indexOf(v),0)/utilVals.length;
+    const avg=utilVals.reduce((s,v)=>s+utilLevels.indexOf(extractLevelGlobal(v)||v),0)/utilVals.length;
     utilSummary=avg<=1.5?'Light requirements':avg<=2.5?'Moderate requirements':'Heavy requirements';
   }
 
@@ -799,7 +966,8 @@ function renderProfile(){
   // Utility dots
   function utilCard(icon,name,val){
     const utilLevels=['Very low','Low','Medium','High','Very high'];
-    const idx=val?utilLevels.indexOf(val):-1;
+    const level=extractLevelGlobal(val);
+    const idx=level?utilLevels.indexOf(level):-1;
     const dotColors=['var(--color-green)','var(--color-green)','var(--color-gold)','var(--color-orange)','var(--color-orange)'];
     if(idx<0) return `<div class="utility-card"><div class="util-icon">${icon}</div><div class="util-name">${name}</div><div class="util-level" style="color:var(--color-text-muted);font-style:italic">No data</div></div>`;
     const dots=Array.from({length:5},(_,i)=>
@@ -1007,11 +1175,39 @@ function renderPickerList(q){
 document.querySelectorAll('thead th[data-sort]').forEach(th=>{
   th.addEventListener('click',()=>{
     const f=th.dataset.sort;
-    if(sortField===f) sortDir=sortDir==='desc'?'asc':'desc';
-    else{sortField=f;sortDir='desc';}
+    if(sortField===f){
+      if(sortDir==='desc') sortDir='asc';
+      else{sortField='density';sortDir='desc';} // 3rd click resets to default
+    } else{sortField=f;sortDir='desc';}
     renderIndustryTable();
   });
 });
+
+document.getElementById('sort2-select').addEventListener('change',e=>{
+  sortField2=e.target.value||null;
+  renderIndustryTable();
+});
+
+document.getElementById('clear-sort-btn').addEventListener('click',()=>{
+  sortField='density';sortDir='desc';sortField2=null;
+  renderIndustryTable();
+});
+
+function activateDisclosure(key){
+  activePortfolio=activePortfolio===key?null:key;
+  activeSectors=new Set();
+  activeWage=null;
+  sortField='density';sortDir='desc';sortField2=null;
+  utilFilter={elec:null,water:null,space:null};
+  document.querySelectorAll('.portfolio-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('low-mfg-btn').classList.toggle('active',activePortfolio==='low_mfg');
+  document.getElementById('nt-mfg-btn').classList.toggle('active',activePortfolio==='nt_mfg');
+  const sec=document.getElementById('industry-table-section');
+  sec.style.display=activePortfolio?'block':'none';
+  if(activePortfolio) renderIndustryTable();
+}
+document.getElementById('low-mfg-btn').addEventListener('click',()=>activateDisclosure('low_mfg'));
+document.getElementById('nt-mfg-btn').addEventListener('click',()=>activateDisclosure('nt_mfg'));
 
 // ─── TRADABILITY PILLS ────────────────────────────────────────────────────────
 
